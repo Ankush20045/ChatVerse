@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { randomBytes } from 'crypto';
+import { existsSync } from 'fs';
+import path from 'path';
 import { z } from 'zod';
 import { RateLimiterMemory } from 'rate-limiter-flexible';
 
@@ -22,6 +24,11 @@ const io = new Server(httpServer, {
 const PORT = Number(process.env.PORT || 3000);
 const MESSAGE_LIMIT = 300;
 const USERNAME_REGEX = /^[A-Za-z0-9_]{3,20}$/;
+const possibleStaticDirs = [
+  path.resolve(process.cwd(), 'client/dist'),
+  path.resolve(process.cwd(), '../client/dist'),
+];
+const staticDir = possibleStaticDirs.find((dir) => existsSync(dir)) || path.resolve(process.cwd(), 'client/dist');
 
 const messageSchema = z.object({
   roomId: z.string(),
@@ -72,9 +79,14 @@ const emitRoomState = (roomId: string) => {
 app.use(cors());
 app.use(helmet({ crossOriginResourcePolicy: false }));
 app.use(express.json());
+app.use(express.static(staticDir));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, timestamp: Date.now() });
+});
+
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(staticDir, 'index.html'));
 });
 
 app.post('/api/validate-username', async (req, res) => {
