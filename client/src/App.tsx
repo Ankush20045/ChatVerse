@@ -70,7 +70,9 @@ function App() {
   const [joinedRoomCode, setJoinedRoomCode] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const messageEndRef = useRef<HTMLDivElement | null>(null);
+  const chatViewportRef = useRef<HTMLDivElement | null>(null);
   const typingTimerRef = useRef<number | null>(null);
+  const isAutoScrollEnabledRef = useRef(true);
 
   useEffect(() => {
     socket.on('connect', () => {
@@ -138,9 +140,20 @@ function App() {
     };
   }, []);
 
+  const scrollToBottom = (behavior: 'auto' | 'smooth' = 'smooth') => {
+    const container = chatViewportRef.current;
+    if (!container) return;
+
+    if (!isAutoScrollEnabledRef.current) return;
+
+    window.requestAnimationFrame(() => {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    });
+  };
+
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typingUsers]);
+    scrollToBottom('smooth');
+  }, [messages, typingUsers, activeRoomId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -341,7 +354,16 @@ function App() {
                 <div className="flex items-center gap-2 text-sm text-slate-300"><Circle size={10} className="text-emerald-400" /> live</div>
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-950/30 p-3">
+              <div
+                ref={chatViewportRef}
+                onScroll={() => {
+                  const container = chatViewportRef.current;
+                  if (!container) return;
+                  const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+                  isAutoScrollEnabledRef.current = distanceFromBottom < 120;
+                }}
+                className="flex-1 space-y-3 overflow-y-auto rounded-2xl bg-slate-950/30 p-3"
+              >
                 <AnimatePresence>
                   {messages.map((message) => (
                     <motion.div key={message.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className={`rounded-2xl px-3 py-2 ${message.system ? 'bg-cyan-500/10 text-cyan-100' : 'bg-white/5 text-slate-100'}`}>
